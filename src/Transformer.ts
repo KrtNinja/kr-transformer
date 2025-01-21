@@ -1,4 +1,4 @@
-import { Message, TransformerError } from './Errors';
+import { Message, TransformerError } from './Errors.js';
 
 /** Transform json or plain object to class instance and vice versa */
 export class Transformer {
@@ -112,5 +112,47 @@ export class Transformer {
     })
 
     return instance
+  }
+
+  static toJSON(instance: Object): JSON | Object {
+    const result = Object.create(null)
+    Reflect.ownKeys(instance).forEach(property => {
+      const value = Reflect.get(instance, property)
+      if (typeof value === 'function') { return; }
+      if (typeof property === 'symbol') { return; }
+      if (Object(value) !== value) {
+        return Reflect.set(result, property, value)
+      }
+
+      if (Array.isArray(value) || value instanceof Set) {
+        const array: any[] = []
+        value.forEach(item => {
+          if (Object(item) !== item) {
+            array.push(item)
+          } else {
+            array.push(this.toJSON(item))
+          }
+        })
+        return Reflect.set(result, property, array)
+      }
+
+      if (value instanceof Map) {
+        const object = Object.create(null)
+        value.forEach((item, key) => {
+          if (Object(item) !== item) {
+            Reflect.set(object, key, item)
+          } else {
+            Reflect.set(object, key, this.toJSON(item))
+          }
+        })
+        return Reflect.set(result, property, object)
+      }
+
+      if (value instanceof Date) {
+        return Reflect.set(result, property, value)
+      }
+      return Reflect.set(result, property, this.toJSON(value))
+    })
+    return JSON.parse(JSON.stringify(result))
   }
 }
