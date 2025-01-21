@@ -1,0 +1,17 @@
+{
+  "include": [
+    "src",
+    "test",
+    "scripts",
+    "eslint.config.mjs",
+    "lint-staged.config.mjs"
+  ],
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "lib": [ "ES2022", "dom" ],
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "removeComments": true
+  }
+}
