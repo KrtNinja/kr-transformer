@@ -9,9 +9,10 @@
 1. Does not require typescript or reflect-metadata;
 2. Can transform `Array` to `Set` and vice versa;
 3. Can transform `Map` to `Object` and vice versa;
-4. Provides basic validation;
-5. Works in all runtimes (Node.js, Web, e.t.c);
-6. Well typed.
+4. Can transform `String` or `Number` to `Date`;
+5. Provides basic validation;
+6. Works in all runtimes (Node.js, Web, e.t.c);
+7. Well typed.
 
 ## Api reference
 ```typescript
