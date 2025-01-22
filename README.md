@@ -180,3 +180,4 @@ console.log(result) // Foo { array: [Bar], set: {Baz}, map: { 1 => Qux }  }
 const plain = Transformer.toJSON(result)
 console.log(plain) // { array: [{ a: 100 }], set: [{ a: 200 }], map: { 1: { c: 300 } }}
 ```
+The static "types" property is not required, if it is not present, the values from json will be used as is.
