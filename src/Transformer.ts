@@ -64,7 +64,11 @@ export class Transformer {
           return Reflect.set(instance, property, jsonValue)
         }
         for (const element of jsonValue) {
-          value.push(this.fromJSON(element, Type))
+          if (typeof Type?.now === 'function') {
+            value.push(new Date(element))
+          } else {
+            value.push(this.fromJSON(element, Type))
+          }
         }
         return;
       }
