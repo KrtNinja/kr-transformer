@@ -6,7 +6,7 @@
 [![size-esm](https://github.com/nihil-pro/kr-transformer/blob/main/assets/esm.svg)](https://bundlephobia.com/package/kr-transformer)
 [![size-cjs](https://github.com/nihil-pro/kr-transformer/blob/main/assets/cjs.svg)](https://bundlephobia.com/package/kr-transformer)
 
-1. Does not depend on typescript or reflect-metadata;
+1. Does not require typescript or reflect-metadata;
 2. Cant transform `Array` to `Set` and vice versa;
 3. Cant transform `Map` to `Object` and vice versa;
 4. Provides basic validation;
@@ -47,7 +47,8 @@ const plain = Transformer.toJSON(instance)
 console.log(instance instanceof User, instance) // true User { ... }
 console.log(plain) // { name: 'John', age: 42, student: true }
 ```
-The `fromJSON` accept third – optional `boolean` argument – which is true by default. That's basic validation:
+#### Validation
+The `fromJSON` method accepts a third, optional boolean argument, which is true by default, and is responsible for basic validation:
 ```typescript
 import { Transformer } from 'kr-transformer'
 
@@ -69,7 +70,8 @@ const json = {
 
 try {
   const instance = Transformer.fromJSON(json, User, false) // disabling validation
-  console.log(instance) // User { age: '42' ... } Json value was used "as is"
+  // value from json was used "as is"
+  console.log(instance) // User { age: '42' ... } 
 } catch (e) {
   console.log(e) // noop
 }
@@ -109,44 +111,72 @@ const car = Transformer.fromJSON(json, Car)
 console.log(car instanceof Car) // true
 console.log(car.engine instanceof Engine) // true
 console.log(typeof car.engine.start === 'function') // true
+console.log(car.oems.pop()) // 'bbb'
 ```
 
-### Deep transform json `Array`, `Map` or `Set` values
+### Transform one data structure into another and vice versa
+- `Array` -> `Set`
+- `Object` -> `Map`
+```typescript
+import { Transformer } from 'kr-transformer'
+
+class Target {
+  set = new Set<string>()
+  map = new Map<string, string | number>
+}
+
+const json = {
+  set: ['a', 'b', 'c'],
+  map: {
+    a: 1,
+    b: '2',
+    c: 3
+  }
+}
+
+const instance = Transformer.fromJSON(json, Target)
+console.log(instance) // Target {set: Set(3), map: Map(3)}
+const plain = Transformer.toJSON(instance) // { set: ['a', 'b', 'c'], map: { a: 1, b: '2', c: 3 } }
+```
+
+### Deeply transform one data structure into another and vice versa
+To transform data structures elements we have to declare their types. <br/>
+To accomplish this, we define a static property called "types" that contains our nested type definitions. 
 ```typescript
 import { Transformer } from 'kr-transformer'
 
 class Bar { a: 1 }
-class Qux { b: 2 }
-class Quux { c: 3 }
+class Baz { b: 2 }
+class Qux { c: 3 }
 
 class Foo {
-  // To do this, we should define a static "types" property,
-  // with an object which will describe our "nested" types
-  static types = { array: Bar, set: Baz, map: Quux }
+  static types = { 
+    array: Bar, // type of elements in array
+    set: Baz, // type of elements in set
+    map: Qux // type of elements values in Map
+  }
 
   // default values are always required
   array: Bar[] = [] 
-  set: Set<Qux> = new Set() 
-  map: Map<string, Quux> = new Map()
+  set: Set<Baz> = new Set() 
+  map: Map<string, Qux> = new Map()
 }
 
 const json = {
-  array: [{ a: 100 }, { a: 200 }, { a: 300 }],
+  array: [{ a: 100 }],
   
   // The type of json should be array. Only `Array` can be mapped to `Set`!
-  set: [{ a: 200 }, { a: 300 }, { a: 400 }],
+  set: [{ a: 200 }],
 
   // The type of json should be Object. Only `Object` can be mapped to `Map`!
   map: {
     1: { c: 300 },
-    2: { c: 400 },
-    3: { c: 500 }
   }
 }
 
 const result = Transformer.fromJSON(json, Foo)
-console.log(result)
+console.log(result) // Foo { array: [Bar], set: {Baz}, map: { 1 => Qux }  }
 
 const plain = Transformer.toJSON(result)
-console.log(plain)
+console.log(plain) // { array: [{ a: 100 }], set: [{ a: 200 }], map: { 1: { c: 300 } }}
 ```
