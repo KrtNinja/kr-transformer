@@ -7,8 +7,8 @@
 [![size-cjs](https://github.com/nihil-pro/kr-transformer/blob/main/assets/cjs.svg)](https://bundlephobia.com/package/kr-transformer)
 
 1. Does not require typescript or reflect-metadata;
-2. Cant transform `Array` to `Set` and vice versa;
-3. Cant transform `Map` to `Object` and vice versa;
+2. Can transform `Array` to `Set` and vice versa;
+3. Can transform `Map` to `Object` and vice versa;
 4. Provides basic validation;
 5. Works in all runtimes (Node.js, Web, e.t.c);
 6. Well typed.

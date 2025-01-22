@@ -33,21 +33,29 @@ export class Transformer {
       // Ignoring methods
       if (typeof value === 'function') { return; }
 
-      if (strict && !Reflect.getOwnPropertyDescriptor(json, property)) {
-        throw new TransformerError(Message.MISMATCH_SCHEMA(property, Name))
+      const jpd = Reflect.getOwnPropertyDescriptor(json, property)
+      if (!jpd) {
+        if (strict) {
+          throw new TransformerError(Message.MISMATCH_SCHEMA(property, Name))
+        }
+        return;
       }
+
       const jsonValue = Reflect.get(json, property)
 
       if (Object(value) !== value) {
         if (strict && typeof value !== typeof jsonValue) {
           throw new TransformerError(Message.INVALID_TYPE(property, Name, value, jsonValue))
         }
-        return Reflect.set(instance, property, jsonValue || value)
+        return Reflect.set(instance, property, jsonValue)
       }
 
       if (Array.isArray(value)) {
         if (!Array.isArray(jsonValue)) {
-          throw new TransformerError(Message.INVALID_TYPE(property, Name, value, jsonValue))
+          if (strict) {
+            throw new TransformerError(Message.INVALID_ARRAY_TYPE(property, Name))
+          }
+          return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of array elements if exists
         const Type = Reflect.get(types, property)
@@ -62,8 +70,11 @@ export class Transformer {
       }
 
       if (value instanceof Map) {
-        if (typeof jsonValue !== 'object') {
-          throw new TransformerError(Message.INVALID_MAP_TYPE(property, Name))
+        if (typeof jsonValue !== 'object' || jsonValue == null) {
+          if (strict) {
+            throw new TransformerError(Message.INVALID_MAP_TYPE(property, Name))
+          }
+          return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of map elements if exists
         const Type = Reflect.get(types, property)
@@ -79,7 +90,10 @@ export class Transformer {
 
       if (value instanceof Set) {
         if (!Array.isArray(jsonValue)) {
-          throw new TransformerError(Message.INVALID_SET_TYPE(property, Name))
+          if (strict) {
+            throw new TransformerError(Message.INVALID_SET_TYPE(property, Name))
+          }
+          return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of set elements if exists
         const Type = Reflect.get(types, property)
@@ -96,7 +110,10 @@ export class Transformer {
         if (typeof jsonValue === 'string' || typeof jsonValue === 'number') {
           return Reflect.set(instance, property, new Date(jsonValue))
         }
-        throw new TransformerError(Message.INVALID_DATE_TYPE(property, Name))
+        if (strict) {
+          throw new TransformerError(Message.INVALID_DATE_TYPE(property, Name))
+        }
+        return Reflect.set(instance, property, jsonValue)
       }
 
       const Constructor = Reflect.getPrototypeOf(value as Object)?.constructor
