@@ -27,6 +27,10 @@ describe('Transformer.fromJSON', () => {
     const case4 = Transformer.fromJSON({ bar: [] }, Foo, false)
     // @ts-ignore
     assert.equal(case4.bar instanceof Array, true)
+
+    class Bar { arr: [] }
+    const case5 = Transformer.fromJSON({ arr: { a: 1 } }, Bar, false)
+    assert.equal(case5.arr instanceof Array, false)
   })
 
   it("should use value from target, when 'strict' = false, and property doesn't exist in json", () => {
@@ -59,30 +63,28 @@ describe('Transformer.fromJSON', () => {
 
   it("should transform array elements if their type are declared in 'types'", () => {
     class Bar {}
+    class Baz {}
     class Foo {
-      static types = { arr: Bar, arr2: Date }
+      static types = { arr: Bar, arr2: Baz }
       arr: Bar[] = []
-      arr2: Date[] = []
+      arr2: Baz[] = []
     }
-    const result = Transformer.fromJSON({ arr: [{}], arr2: [Date.now()] }, Foo)
+    const result = Transformer.fromJSON({ arr: [{}], arr2: [{}] }, Foo)
     assert.equal(result.arr[0] instanceof Bar, true)
-    assert.equal(result.arr2[0] instanceof Date, true)
-    assert.equal(typeof result.arr2[0].getFullYear(), 'number')
+    assert.equal(result.arr2[0] instanceof Baz, true)
   })
 
 
   it("should not transform array elements if their type are not declared in 'types'", () => {
     class Bar {}
-
+    class Baz {}
     class Foo {
       arr: Bar[] = []
-      arr2: Date[] = []
-      arr3: string[] = []
+      arr2: Baz[] = []
     }
-    const result = Transformer.fromJSON({ arr: [{}], arr2: [Date.now()], arr3: [''] }, Foo)
+    const result = Transformer.fromJSON({ arr: [{}], arr2: [{}] }, Foo)
     assert.equal(result.arr[0] instanceof Bar, false)
-    assert.equal(result.arr2[0] instanceof Date, false)
-    assert.equal(typeof result.arr3[0], 'string')
+    assert.equal(result.arr2[0] instanceof Baz, false)
   })
 
 
@@ -107,5 +109,50 @@ describe('Transformer.fromJSON', () => {
     const result= Transformer.fromJSON({ map: { 1: {}, 2: {} } }, Foo)
     assert.equal(result.map instanceof Map, true)
     result.map.forEach((value) => assert.equal(value instanceof Bar, true))
+  })
+
+
+  it('should transform into date when Date is declared as type in "type"', () => {
+    class Foo {
+      static types = { map: Date, set: Date, arr: Date }
+      map = new Map<string, Date>()
+      set = new Set<Date>()
+      arr: Date[] = []
+    }
+    const json = {
+      map: { 1: '2025-01-01', 2: Date.now() },
+      set: ['2025-01-01', Date.now()],
+      arr: ['2025-01-01', Date.now()]
+    }
+    const result= Transformer.fromJSON(json, Foo)
+    assert.equal(result.map instanceof Map, true)
+    assert.equal(result.set instanceof Set, true)
+    assert.equal(Array.isArray(result.arr), true)
+    result.arr.forEach(el => assert.equal(el instanceof Date, true))
+    result.set.forEach(el => assert.equal(el instanceof Date, true))
+    result.map.forEach(el => assert.equal(el instanceof Date, true))
+  })
+
+
+  it('should transform into date when Date is declared as type in "types" using json values when "strict" = false', () => {
+    class Foo {
+      static types = { map: Date, set: Date, arr: Date }
+      map = new Map<string, Date>()
+      set = new Set<Date>()
+      arr: Date[] = []
+    }
+    const json = {
+      map: { 1: true },
+      set: [ null ],
+      arr: [ {} ]
+    }
+    const result= Transformer.fromJSON(json, Foo, false)
+    assert.equal(result.map instanceof Map, true)
+    assert.equal(result.set instanceof Set, true)
+    assert.equal(Array.isArray(result.arr), true)
+
+    result.arr.forEach(el => assert.equal(el instanceof Date, true))
+    result.set.forEach(el => assert.equal(el instanceof Date, true))
+    result.map.forEach(el => assert.equal(el instanceof Date, true))
   })
 })
