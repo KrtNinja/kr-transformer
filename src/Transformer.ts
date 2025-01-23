@@ -4,12 +4,13 @@ import { Message, TransformerError } from './Errors.js';
 export class Transformer {
   static #descriptor = { writable: false, enumerable: false } as PropertyDescriptor;
 
-  static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true): T {
+  static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true, key?: string): T {
     let instance!: T
 
     if (arguments.length < 2) {
       throw new TransformerError(Message.INVALID_NUMBER_OF_ARGUMENTS(arguments.length))
     }
+
     try {
       instance = new Class()
     } catch {
@@ -19,7 +20,18 @@ export class Transformer {
     const Name = Class.name
     const types = Reflect.get(Class, 'types') || Object.create(null)
 
+    if (typeof Reflect.get(Class, 'now') === 'function') {
+      if (typeof json === 'string' || typeof json === 'number') {
+        return new Date(json as unknown as string) as unknown as T
+      }
+      if (strict) {
+        throw new TransformerError(Message.INVALID_TYPE(key, Name, '', json))
+      }
+      return new Date(json as unknown as string) as unknown as T
+    }
+
     if (json == null || typeof json !== 'object') {
+      console.log(Class, json, key)
       throw new TransformerError(Message.INVALID_JSON(json, Name))
     }
 
@@ -64,11 +76,7 @@ export class Transformer {
           return Reflect.set(instance, property, jsonValue)
         }
         for (const element of jsonValue) {
-          if (typeof Type?.now === 'function') {
-            value.push(new Date(element))
-          } else {
-            value.push(this.fromJSON(element, Type))
-          }
+          value.push(this.fromJSON(element, Type, strict, property))
         }
         return;
       }
@@ -84,7 +92,7 @@ export class Transformer {
         const Type = Reflect.get(types, property)
         Object.entries(jsonValue).forEach(([k, v]) => {
           if (Type) {
-            value.set(k, this.fromJSON(v, Type))
+            value.set(k, this.fromJSON(v, Type, strict, property))
           } else {
             value.set(k, v)
           }
@@ -94,16 +102,14 @@ export class Transformer {
 
       if (value instanceof Set) {
         if (!Array.isArray(jsonValue)) {
-          if (strict) {
-            throw new TransformerError(Message.INVALID_SET_TYPE(property, Name))
-          }
+          if (strict) { throw new TransformerError(Message.INVALID_SET_TYPE(property, Name)); }
           return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of set elements if exists
         const Type = Reflect.get(types, property)
         jsonValue.forEach(item => {
           if (Type) {
-            value.add(this.fromJSON(item, Type))
+            value.add(this.fromJSON(item, Type, strict, property))
           } else {
             value.add(item)
           }
@@ -126,10 +132,10 @@ export class Transformer {
         if (strict && jsonValue == null || typeof jsonValue !== 'object') {
           throw new TransformerError(Message.INVALID_TYPE(property, Name, value, jsonValue))
         }
-        return Reflect.set(instance, property, jsonValue || value)
+        return Reflect.set(instance, property, jsonValue)
       }
 
-      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }))
+      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }), strict)
     })
 
     return instance

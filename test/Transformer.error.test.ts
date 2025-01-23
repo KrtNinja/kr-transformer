@@ -166,4 +166,40 @@ describe('Exceptions', () => {
       assert.equal(error instanceof TransformerError, true);
     }
   })
+
+
+  it('should throw INVALID_TYPE when Date is declared as type in "types" but value in json is not string or number', () => {
+    class Foo {
+      static types = { map: Date }
+      map = new Map<string, Date>()
+    }
+
+    class Bar {
+      static types = { set: Date }
+      set = new Set<Date>()
+    }
+
+    class Baz {
+      static types = { arr: Date }
+      arr: Date[] = []
+    }
+
+    try {
+      Transformer.fromJSON({ map: { 1: true } }, Foo)
+    } catch (error) {
+      assert.equal(error.message, Message.INVALID_TYPE('map', 'Date', '', true));
+    }
+
+    try {
+      Transformer.fromJSON({ set: [null] }, Bar)
+    } catch (error) {
+      assert.equal(error.message, Message.INVALID_TYPE('set', 'Date', '', null));
+    }
+
+    try {
+      Transformer.fromJSON({ arr: [{}] }, Baz)
+    } catch (error) {
+      assert.equal(error.message, Message.INVALID_TYPE('arr', 'Date', '', {}));
+    }
+  })
 })
