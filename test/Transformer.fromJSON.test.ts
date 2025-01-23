@@ -57,7 +57,7 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it("should transform array elements if they are declared in static 'types' property", () => {
+  it("should transform array elements if their type are declared in 'types'", () => {
     class Bar {}
     class Foo {
       static types = { arr: Bar, arr2: Date }
@@ -68,5 +68,44 @@ describe('Transformer.fromJSON', () => {
     assert.equal(result.arr[0] instanceof Bar, true)
     assert.equal(result.arr2[0] instanceof Date, true)
     assert.equal(typeof result.arr2[0].getFullYear(), 'number')
+  })
+
+
+  it("should not transform array elements if their type are not declared in 'types'", () => {
+    class Bar {}
+
+    class Foo {
+      arr: Bar[] = []
+      arr2: Date[] = []
+      arr3: string[] = []
+    }
+    const result = Transformer.fromJSON({ arr: [{}], arr2: [Date.now()], arr3: [''] }, Foo)
+    assert.equal(result.arr[0] instanceof Bar, false)
+    assert.equal(result.arr2[0] instanceof Date, false)
+    assert.equal(typeof result.arr3[0], 'string')
+  })
+
+
+  it("should transform array elements into Set", () => {
+    class Bar {}
+    class Foo {
+      static types = { set: Bar }
+      set = new Set<Bar>()
+    }
+    const result= Transformer.fromJSON({ set: [{}, {}] }, Foo)
+    assert.equal(result.set instanceof Set, true)
+    result.set.forEach(value => assert.equal(value instanceof Bar, true))
+  })
+
+
+  it("should transform object into Map", () => {
+    class Bar {}
+    class Foo {
+      static types = { map: Bar }
+      map = new Map<string, Bar>()
+    }
+    const result= Transformer.fromJSON({ map: { 1: {}, 2: {} } }, Foo)
+    assert.equal(result.map instanceof Map, true)
+    result.map.forEach((value) => assert.equal(value instanceof Bar, true))
   })
 })
