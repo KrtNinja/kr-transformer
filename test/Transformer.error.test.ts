@@ -202,4 +202,16 @@ describe('Exceptions', () => {
       assert.equal(error.message, Message.INVALID_TYPE('arr', 'Date', '', {}));
     }
   })
+
+
+  it('should throw INVALID_TYPE when object value is Object without prototype and "strict" = true', () => {
+    class Foo { bar = Object.create(null) }
+    try {
+      Transformer.fromJSON({ bar: null }, Foo, true)
+    } catch (error) {
+      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', Object.create(null), null));
+      assert.equal(error instanceof TransformerError, true);
+    }
+  })
+
 })
