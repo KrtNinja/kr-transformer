@@ -2,7 +2,7 @@ import { Message, TransformerError } from './Errors.js';
 
 /** Transform json or plain object to class instance and vice versa */
 export class Transformer {
-  static #descriptor = { writable: false, enumerable: false } as PropertyDescriptor;
+  static #descriptor = { writable: false } as PropertyDescriptor;
 
   static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true, key?: string): T {
     let instance!: T
@@ -31,13 +31,12 @@ export class Transformer {
     }
 
     if (json == null || typeof json !== 'object') {
-      console.log(Class, json, key)
       throw new TransformerError(Message.INVALID_JSON(json, Name))
     }
 
     Reflect.ownKeys(instance).forEach(property => {
-      const { writable, enumerable } = Reflect.getOwnPropertyDescriptor(instance, property) || this.#descriptor
-      if (!writable || !enumerable) { return; }
+      const { writable} = Reflect.getOwnPropertyDescriptor(instance, property) || this.#descriptor
+      if (!writable) { return; }
       // Treat them as private
       if (typeof property === 'symbol') { return; }
 
@@ -142,7 +141,7 @@ export class Transformer {
   }
 
   static toJSON(instance: Object): JSON | Object {
-    const result = Object.create(null)
+    const result = {}
     Reflect.ownKeys(instance).forEach(property => {
       const value = Reflect.get(instance, property)
       if (typeof value === 'function') { return; }
@@ -164,7 +163,7 @@ export class Transformer {
       }
 
       if (value instanceof Map) {
-        const object = Object.create(null)
+        const object = {}
         value.forEach((item, key) => {
           if (Object(item) !== item) {
             Reflect.set(object, key, item)
