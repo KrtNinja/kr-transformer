@@ -1,10 +1,41 @@
 import { Message, TransformerError } from './Errors.js';
 
+interface Descriptor {
+  /** Any class constructor including built in (String, Number, Boolean, Date e.t.c) */
+  type: { new(): any },
+
+  /** Describes type of elements in collection. <br />
+   * If Schema[property] is Map, Set or Array, than property "of" describes the type of elements in collection. <br />
+   * I.e. Array<Schema[property]['off']> <br />
+   * If not specified, the values from json will be used "as is".
+   *   */
+  of?: { new(): unknown }
+
+  /** Can value of this property be null? */
+  nullable?: boolean,
+
+  /** Will `throw` if type of value in json doesn't match schema. <br/>
+   * Otherwise, the value in json will be used "as is". <br />
+   * Is considering "true" by default. <br />
+   * Takes precedence over the parameter "strict", passed to the fromJSON method as third argument.
+   * */
+  strict?: boolean
+}
+
+/** Describes expected behaviour during transformation,
+ * and types of Target properties. <br />
+ *
+ * Use this only for `nullable properties`, or to describe `types of collections`. <br />
+ * There is no reason to describe each property, is much better and easier to set default values.
+ * */
+export type Schema<T extends Object> = { [Property in keyof T]?: T[Property] extends Function ? never : Descriptor }
+
+
 /** Transform json or plain object to class instance and vice versa */
 export class Transformer {
   static #descriptor = { writable: false } as PropertyDescriptor;
 
-  static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true, key?: string): T {
+  static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true): T {
     let instance!: T
 
     if (arguments.length < 2) {
@@ -18,17 +49,7 @@ export class Transformer {
     }
 
     const Name = Class.name
-    const types = Reflect.get(Class, 'types') || Object.create(null)
-
-    if (typeof Reflect.get(Class, 'now') === 'function') {
-      if (typeof json === 'string' || typeof json === 'number') {
-        return new Date(json as unknown as string) as unknown as T
-      }
-      if (strict) {
-        throw new TransformerError(Message.INVALID_TYPE(key, Name, '', json))
-      }
-      return new Date(json as unknown as string) as unknown as T
-    }
+    const types: Schema<T> = Reflect.get(Class, 'types') || Object.create(null) as Schema<T>
 
     if (json == null || typeof json !== 'object') {
       throw new TransformerError(Message.INVALID_JSON(json, Name))
@@ -39,23 +60,30 @@ export class Transformer {
       if (!writable) { return; }
       // Treat them as private
       if (typeof property === 'symbol') { return; }
-
-      const value = Reflect.get(instance, property)
+      const descriptor: Descriptor | undefined = types[property]
+      const shouldThrow = this.#shouldThrow(strict, descriptor)
+      let value = Reflect.get(instance, property)
+      if (!value) {
+        if (shouldThrow && !descriptor) {
+          throw new TransformerError(`The type for "${property}" in "${Name}" was not found in either the "types" or the default value`)
+        }
+        try {
+          value = new descriptor.type()
+        } catch {
+          throw new TransformerError(`Static property "types" contain an invalid constructor for property "${property}" in "${Name}"`)
+        }
+      }
       // Ignoring methods
       if (typeof value === 'function') { return; }
 
-      const jpd = Reflect.getOwnPropertyDescriptor(json, property)
-      if (!jpd) {
-        if (strict) {
-          throw new TransformerError(Message.MISMATCH_SCHEMA(property, Name))
-        }
-        return;
+      if (shouldThrow && !Reflect.getOwnPropertyDescriptor(json, property)) {
+        throw new TransformerError(Message.MISMATCH_SCHEMA(property, Name))
       }
 
       const jsonValue = Reflect.get(json, property)
 
       if (Object(value) !== value) {
-        if (strict && typeof value !== typeof jsonValue) {
+        if (shouldThrow && typeof value !== typeof jsonValue) {
           throw new TransformerError(Message.INVALID_TYPE(property, Name, value, jsonValue))
         }
         return Reflect.set(instance, property, jsonValue)
@@ -63,78 +91,77 @@ export class Transformer {
 
       if (Array.isArray(value)) {
         if (!Array.isArray(jsonValue)) {
-          if (strict) {
+          if (shouldThrow) {
             throw new TransformerError(Message.INVALID_ARRAY_TYPE(property, Name))
           }
           return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of array elements if exists
-        const Type = Reflect.get(types, property)
+        const Type = Reflect.get(descriptor, 'of')
         // Considering elements are primitives, or shouldn't be transformed
-        if (!Type) {
+        if (!Type || this.#isPrimitive(Type)) {
           return Reflect.set(instance, property, jsonValue)
         }
         for (const element of jsonValue) {
-          value.push(this.fromJSON(element, Type, strict, property))
+          value.push(this.fromJSON(element, Type, shouldThrow))
         }
         return;
       }
 
       if (value instanceof Map) {
+        const map = value as Map<string, any>
         if (typeof jsonValue !== 'object' || jsonValue == null) {
-          if (strict) {
-            throw new TransformerError(Message.INVALID_MAP_TYPE(property, Name))
-          }
+          if (shouldThrow) { throw new TransformerError(Message.INVALID_MAP_TYPE(property, Name)); }
           return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of map elements if exists
-        const Type = Reflect.get(types, property)
+        const Type = Reflect.get(descriptor, 'of')
         Object.entries(jsonValue).forEach(([k, v]) => {
-          if (Type) {
-            value.set(k, this.fromJSON(v, Type, strict, property))
+          if (Type && !this.#isPrimitive(Type)) {
+            map.set(k, this.fromJSON(v, Type, shouldThrow))
           } else {
-            value.set(k, v)
+            map.set(k, v)
           }
         })
         return;
       }
 
       if (value instanceof Set) {
+        const set = value as Set<any>
         if (!Array.isArray(jsonValue)) {
-          if (strict) { throw new TransformerError(Message.INVALID_SET_TYPE(property, Name)); }
+          if (shouldThrow) { throw new TransformerError(Message.INVALID_SET_TYPE(property, Name)); }
           return Reflect.set(instance, property, jsonValue)
         }
         // Getting declared type of set elements if exists
-        const Type = Reflect.get(types, property)
+        const Type = Reflect.get(descriptor, 'off')
         jsonValue.forEach(item => {
-          if (Type) {
-            value.add(this.fromJSON(item, Type, strict, property))
+          if (Type && !this.#isPrimitive(Type)) {
+            set.add(this.fromJSON(item, Type, shouldThrow))
           } else {
-            value.add(item)
+            set.add(item)
           }
         })
       }
 
       if (value instanceof Date) {
+        let dateValue = jsonValue
         if (typeof jsonValue === 'string' || typeof jsonValue === 'number') {
-          return Reflect.set(instance, property, new Date(jsonValue))
+          dateValue = new Date(jsonValue);
         }
-        if (strict) {
-          throw new TransformerError(Message.INVALID_DATE_TYPE(property, Name))
-        }
-        return Reflect.set(instance, property, jsonValue)
+        if (shouldThrow) { throw new TransformerError(Message.INVALID_TYPE(property, Name, '', jsonValue))}
+        Reflect.set(instance, property, dateValue)
       }
 
       const Constructor = Reflect.getPrototypeOf(value as Object)?.constructor
       // Consider that initial value is an object without prototype
       if (!Constructor) {
-        if (strict && jsonValue == null || typeof jsonValue !== 'object') {
+        if (shouldThrow && jsonValue == null || typeof jsonValue !== 'object') {
           throw new TransformerError(Message.INVALID_TYPE(property, Name, value, jsonValue))
         }
         return Reflect.set(instance, property, jsonValue)
       }
 
-      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }), strict)
+      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }), shouldThrow)
     })
 
     return instance
@@ -180,5 +207,15 @@ export class Transformer {
       return Reflect.set(result, property, this.toJSON(value))
     })
     return JSON.parse(JSON.stringify(result))
+  }
+
+
+  static #shouldThrow(strict= true, descriptor?: Descriptor) {
+    if (!descriptor) return strict
+    return Reflect.get(descriptor, 'strict') || strict
+  }
+
+  static #isPrimitive(type: any) {
+    return type === String || type === Number || type === Boolean
   }
 }

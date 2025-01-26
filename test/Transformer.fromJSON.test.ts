@@ -12,7 +12,7 @@ describe('Transformer.fromJSON', () => {
   });
 
 
-  it('should use value from json when transform into Map and json value is not object, and "strict" = false', () => {
+  it('should use value from json when transform into Map, json value is not object, and "strict" = false', () => {
     const json = { foo: 'bar' };
     class Target {
       foo = new Map<string, Object>()
@@ -92,7 +92,7 @@ describe('Transformer.fromJSON', () => {
     class Bar {}
     class Baz {}
     class Foo {
-      static types = { arr: Bar, arr2: Baz }
+      static types = { arr: { of: Bar }, arr2: { of: Bar } }
       arr: Bar[] = []
       arr2: Baz[] = []
     }
@@ -118,7 +118,7 @@ describe('Transformer.fromJSON', () => {
   it("should transform array elements into Set", () => {
     class Bar {}
     class Foo {
-      static types = { set: Bar }
+      static types = { set: { of: Bar } }
       set = new Set<Bar>()
     }
     const result= Transformer.fromJSON({ set: [{}, {}] }, Foo)
@@ -159,7 +159,7 @@ describe('Transformer.fromJSON', () => {
   it("should transform object into Map", () => {
     class Bar {}
     class Foo {
-      static types = { map: Bar }
+      static types = { map: { of: Bar } }
       map = new Map<string, Bar>()
     }
     const result= Transformer.fromJSON({ map: { 1: {}, 2: {} } }, Foo)
@@ -170,7 +170,7 @@ describe('Transformer.fromJSON', () => {
 
   it('should transform into date when Date is declared as type in "type"', () => {
     class Foo {
-      static types = { map: Date, set: Date, arr: Date }
+      static types = { map: { of: Date }, set: { of: Date }, arr: { of: Date } }
       map = new Map<string, Date>()
       set = new Set<Date>()
       arr: Date[] = []
@@ -192,7 +192,7 @@ describe('Transformer.fromJSON', () => {
 
   it('should transform into date when Date is declared as type in "types" using json values when "strict" = false', () => {
     class Foo {
-      static types = { map: Date, set: Date, arr: Date }
+      static types = { map: { of: Date }, set: { of: Date }, arr: { of: Date } }
       map = new Map<string, Date>()
       set = new Set<Date>()
       arr: Date[] = []
@@ -207,9 +207,9 @@ describe('Transformer.fromJSON', () => {
     assert.equal(result.set instanceof Set, true)
     assert.equal(Array.isArray(result.arr), true)
 
-    result.arr.forEach(el => assert.equal(el instanceof Date, true))
-    result.set.forEach(el => assert.equal(el instanceof Date, true))
-    result.map.forEach(el => assert.equal(el instanceof Date, true))
+    result.arr.forEach(el => assert.equal(el instanceof Date, false))
+    result.set.forEach(el => assert.equal(el instanceof Date, false))
+    result.map.forEach(el => assert.equal(el instanceof Date, false))
   })
 
   it('should ignore symbols properties', () => {

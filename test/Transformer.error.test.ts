@@ -170,17 +170,17 @@ describe('Exceptions', () => {
 
   it('should throw INVALID_TYPE when Date is declared as type in "types" but value in json is not string or number', () => {
     class Foo {
-      static types = { map: Date }
+      static types = { map: { type: Date } }
       map = new Map<string, Date>()
     }
 
     class Bar {
-      static types = { set: Date }
+      static types = { set: { type: Date } }
       set = new Set<Date>()
     }
 
     class Baz {
-      static types = { arr: Date }
+      static types = { arr: { type: Date } }
       arr: Date[] = []
     }
 
