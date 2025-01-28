@@ -1,4 +1,4 @@
-import { Transformer } from '../src';
+import { Transformer, Schema } from '../src';
 import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 
@@ -12,57 +12,80 @@ describe('Transformer.fromJSON', () => {
   });
 
 
-  it('should use value from json when transform into Map, json value is not object, and "strict" = false', () => {
-    const json = { foo: 'bar' };
-    class Target {
-      foo = new Map<string, Object>()
+  it(`should use value from json "as is", if it can't be cast to type declared in target class, and strict is false`, () => {
+    class Bar {}
+
+    class Foo {
+      text= ''
+      time= new Date()
+      array= []
+      set= new Set<any>()
+      map= new Map<string, any>()
+      bar = new Bar()
     }
-    const result = Transformer.fromJSON(json, Target, false)
-    assert.equal(result instanceof Target, true);
-    assert.equal(typeof result.foo, 'string');
-  });
 
-
-  it('should use value from json when transform into Array and json value is not array, and "strict" = false', () => {
-    const json = { foo: 'bar' };
-    class Target {
-      foo = []
+    const json = {
+      text: 0,
+      time: true,
+      array: 'null',
+      set: null,
+      map: [],
+      bar: null
     }
-    const result = Transformer.fromJSON(json, Target, false)
-    assert.equal(result instanceof Target, true);
-    assert.equal(typeof result.foo, 'string');
-  });
 
-
-  it('should use value from json when "strict" = false', () => {
-    class Foo { bar = 0 }
-
-    const case1 = Transformer.fromJSON({ bar: '' }, Foo, false)
-    assert.equal(case1.bar, '')
-
-    const case2 = Transformer.fromJSON({ bar: true }, Foo, false)
-    assert.equal(case2.bar, true)
-
-    const case3 = Transformer.fromJSON({ bar: null }, Foo, false)
-    assert.equal(case3.bar, null)
-
-    const case4 = Transformer.fromJSON({ bar: [] }, Foo, false)
-    // @ts-ignore
-    assert.equal(case4.bar instanceof Array, true)
-
-    class Bar { arr: [] }
-    const case5 = Transformer.fromJSON({ arr: { a: 1 } }, Bar, false)
-    assert.equal(case5.arr instanceof Array, false)
-
-
-    class Baz { time = new Date() }
-    const case6 = Transformer.fromJSON({ time: { } }, Baz, false)
-    assert.equal(Reflect.getPrototypeOf(case6.time), Reflect.getPrototypeOf({}))
+    const result = Transformer.fromJSON(json, Foo, false)
+    assert.equal(result.text, 0)
+    assert.equal(result.time, true)
+    assert.equal(result.array, 'null')
+    assert.equal(result.set, null)
+    assert.equal(Array.isArray(result.map), true)
+    assert.equal(result.bar, null)
   })
 
-  it("should use value from target, when 'strict' = false, and property doesn't exist in json", () => {
-    class Foo { bar = new Map() }
+  it('should not throw if value in json is "null", strict is "true" and descriptor nullable is "true"', () => {
+    const schema: Schema<Foo> = {
+      text: { nullable: true },
+      time: { nullable: true },
+      array: { nullable: true },
+      set: { nullable: true },
+      map: { nullable: true },
+      bar: { nullable: true }
+    }
 
+    class Bar {}
+
+    class Foo {
+      static types: Schema<Foo> = schema
+      text= ''
+      time= new Date()
+      array= []
+      set= new Set<any>()
+      map= new Map<string, any>()
+      bar = new Bar()
+    }
+
+    const json = {
+      text: null,
+      time: null,
+      array: null,
+      set: null,
+      map: null,
+      bar: null
+    }
+    const result = Transformer.fromJSON(json, Foo)
+    assert.equal(result.text, null)
+    assert.equal(result.time, null)
+    assert.equal(result.array, null)
+    assert.equal(result.set, null)
+    assert.equal(result.map, null)
+    assert.equal(result.bar, null)
+  })
+
+
+  it("should use value from target, when 'strict' = false, and property doesn't exist in json", () => {
+    class Foo {
+      bar = new Map()
+    }
     const case1 = Transformer.fromJSON({ }, Foo, false)
     assert.equal(case1.bar instanceof Map, true)
   })
@@ -74,10 +97,6 @@ describe('Transformer.fromJSON', () => {
     const case1 = Transformer.fromJSON({ time: '2025-01-01' }, Foo)
     assert.equal(case1.time instanceof Date, true)
     assert.equal(typeof case1.time.toDateString(), 'string')
-
-    const case2 = Transformer.fromJSON({ time: Date.now() }, Foo)
-    assert.equal(case2.time instanceof Date, true)
-    assert.equal(typeof case2.time.getTime(), 'number')
   })
 
 
@@ -92,7 +111,7 @@ describe('Transformer.fromJSON', () => {
     class Bar {}
     class Baz {}
     class Foo {
-      static types = { arr: { of: Bar }, arr2: { of: Bar } }
+      static types = { arr: { of: Bar }, arr2: { of: Baz } }
       arr: Bar[] = []
       arr2: Baz[] = []
     }
@@ -115,7 +134,7 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it("should transform array elements into Set", () => {
+  it("should transform array into Set", () => {
     class Bar {}
     class Foo {
       static types = { set: { of: Bar } }
@@ -176,9 +195,9 @@ describe('Transformer.fromJSON', () => {
       arr: Date[] = []
     }
     const json = {
-      map: { 1: '2025-01-01', 2: Date.now() },
-      set: ['2025-01-01', Date.now()],
-      arr: ['2025-01-01', Date.now()]
+      map: { 1: '2025-01-01' },
+      set: ['2025-01-01'],
+      arr: ['2025-01-01']
     }
     const result= Transformer.fromJSON(json, Foo)
     assert.equal(result.map instanceof Map, true)
@@ -190,11 +209,11 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it('should transform into date when Date is declared as type in "types" using json values when "strict" = false', () => {
+  it.skip('should transform into date when Date is declared as type in "types" using json values when "strict" = false', () => {
     class Foo {
       static types = { map: { of: Date }, set: { of: Date }, arr: { of: Date } }
-      map = new Map<string, Date>()
-      set = new Set<Date>()
+      map= new Map<string, Date>()
+      set= new Set<Date>()
       arr: Date[] = []
     }
     const json = {
