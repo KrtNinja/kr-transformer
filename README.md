@@ -294,3 +294,37 @@ try {
   console.log(e) // noop
 }
 ```
+or:
+```typescript
+import { Transformer } from 'kr-transformer'
+
+class User {
+  static types = {
+    // describing property "age" in User
+    age: { 
+      // enable validation for this property
+      strict: true 
+    } 
+  }
+  
+  name = '' // will be treated as type "String"
+  age = 0 // will be treated as type "Number"
+  student = false // will be treated as type "Boolean"
+  
+  setName() { 
+    // ...
+  }
+}
+
+const json = { 
+  name: 'John', 
+  age: "42", // wrong type
+  student: true 
+}
+
+try {
+  const instance = Transformer.fromJSON(json, User, false) // disable validation
+} catch (e) {
+  console.log(e) // TransformerError: `Invalid type of "age" in json. User expect type to be "number" but got "string"`
+}
+```
