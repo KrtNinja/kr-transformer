@@ -11,9 +11,6 @@ interface Descriptor {
    *   */
   of?: { new(): unknown }
 
-  /** Can value of this property be null? */
-  nullable?: boolean,
-
   /** Will `throw` if type of value in json doesn't match schema. <br/>
    * Otherwise, the value in json will be used "as is". <br />
    * Is considering "true" by default. <br />
@@ -63,8 +60,10 @@ export class Transformer {
       const descriptor: Descriptor = types[property] || {} as Descriptor
       const shouldThrow = this.#shouldThrow(strict, descriptor)
       let value = Reflect.get(instance, property)
+      let nullable = false
       // if value is null or undefined
       if (value == null) {
+        nullable = true
         // if types was not specified
         if (!descriptor?.type) {
           if (shouldThrow) {
@@ -92,7 +91,7 @@ export class Transformer {
 
       const jsonValue = Reflect.get(json, property)
 
-      if (jsonValue == null && descriptor?.nullable || !shouldThrow) {
+      if (jsonValue == null && nullable || !shouldThrow) {
         return Reflect.set(instance, property, jsonValue)
       }
 
