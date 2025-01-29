@@ -62,11 +62,16 @@ export class Transformer {
       if (typeof property === 'symbol') { return; }
       const descriptor: Descriptor = types[property] || {} as Descriptor
       const shouldThrow = this.#shouldThrow(strict, descriptor)
-      const CollectionElementsType = Reflect.get(descriptor, 'of')
       let value = Reflect.get(instance, property)
+      // if value is null or undefined
       if (value == null) {
-        if (shouldThrow && !descriptor) {
-          throw new TransformerError(`The type for "${property}" in "${Name}" was not found in either the "types" or the default value`)
+        // if types was not specified
+        if (!descriptor?.type) {
+          if (shouldThrow) {
+            throw new TransformerError(`The type for "${property}" in "${Name}" was not found in either the "types" or the default value`)
+          }
+          // do nothing
+          return;
         }
         try {
           value = new descriptor.type()
