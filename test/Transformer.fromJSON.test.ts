@@ -43,25 +43,24 @@ describe('Transformer.fromJSON', () => {
   })
 
   it('should not throw if value in json is "null", strict is "true" and descriptor nullable is "true"', () => {
-    const schema: Schema<Foo> = {
-      text: { nullable: true },
-      time: { nullable: true },
-      array: { nullable: true },
-      set: { nullable: true },
-      map: { nullable: true },
-      bar: { nullable: true }
-    }
-
     class Bar {}
+    const schema: Schema<Foo> = {
+      text: { type: String },
+      time: { type: Date },
+      array: { type: Array },
+      set: { type: Set },
+      map: { type: Map },
+      bar: { type: Bar }
+    }
 
     class Foo {
       static types: Schema<Foo> = schema
-      text= ''
-      time= new Date()
-      array= []
-      set= new Set<any>()
-      map= new Map<string, any>()
-      bar = new Bar()
+      text: string | null = null
+      time: Date | null = null
+      array: any[] | null = null
+      set: Set<any> = null
+      map: Map<string, any> = null
+      bar: Bar | null = null
     }
 
     const json = {
