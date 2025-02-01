@@ -33,13 +33,13 @@ export class Transformer {
 
   static fromJSON<T extends Object>(json: JSON | Object, Class: { new(): T }, strict = true): T {
     let instance!: T
-    const Name = Reflect.get(Class, 'name') || 'unknown'
     try {
       instance = new Class()
     } catch {
-      throw new TransformerError(INVALID.TARGET([Name]))
+      throw new TransformerError(INVALID.TARGET([Class?.name]))
     }
 
+    const Name = Reflect.get(Class, 'name')
     const types: Schema<T> = Reflect.get(Class, 'types') || Object.create(null) as Schema<T>
 
     if (json == null || typeof json !== 'object') {
@@ -60,9 +60,7 @@ export class Transformer {
       if (typeof value === 'function') { return; }
 
       const PropertyType = Reflect.get(descriptor, 'type')
-      let nullable = false
       if (value == null) {
-        nullable = true
         if (!PropertyType) {
           if (throwable) {
             new TransformerError(INVALID.TARGET([Name, property, 'undefined']))
@@ -70,9 +68,9 @@ export class Transformer {
           return;
         }
         try {
-          value = Reflect.construct(PropertyType, [])
+          value = new PropertyType()
         } catch {
-          new TransformerError(INVALID.TARGET([Name, property, PropertyType?.name]))
+          throw new TransformerError(INVALID.TARGET([Name, property, PropertyType?.name]))
         }
       }
 
@@ -82,13 +80,8 @@ export class Transformer {
       }
 
       const jsonValue = Reflect.get(json, property)
-
-      if (jsonValue == null) {
-        if (nullable || !throwable) {
-          return Reflect.set(instance, property, jsonValue)
-        } else {
-          throw TypeError
-        }
+      if (!jsonValue) {
+        return Reflect.set(instance, property, jsonValue)
       }
 
       if (Object(value) !== value) {
@@ -113,7 +106,7 @@ export class Transformer {
       }
 
       if (value instanceof Map) {
-        if (typeof jsonValue !== 'object') {
+        if (Array.isArray(jsonValue) || typeof jsonValue !== 'object') {
           if (throwable) { throw TypeError; }
           return Reflect.set(instance, property, jsonValue)
         }
@@ -142,6 +135,7 @@ export class Transformer {
           return Reflect.set(instance, property, new Date(jsonValue))
         }
         if (throwable) { throw TypeError; }
+        return Reflect.set(instance, property, jsonValue)
       }
 
       const Constructor = Reflect.getPrototypeOf(value as Object)?.constructor
@@ -193,9 +187,11 @@ export class Transformer {
       if (typeof input === 'string') {
         return new Date(input)
       } else {
-        throw new TransformerError(INVALID.TYPE(property, [...ErrorPath, Type?.name]))
+        throw new TransformerError(INVALID.TYPE(property, ErrorPath))
       }
     } else if (Object(input) !== input) {
+      return input
+    } else if (!Type) {
       return input
     } else {
       return this.fromJSON(input, Type, throwable)

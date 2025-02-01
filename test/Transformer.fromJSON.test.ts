@@ -42,6 +42,7 @@ describe('Transformer.fromJSON', () => {
     assert.equal(result.bar, null)
   })
 
+
   it('should not throw if value in json is "null", strict is "true" and descriptor nullable is "true"', () => {
     class Bar {}
     const schema: Schema<Foo> = {
@@ -90,9 +91,8 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it("should create Date from string or number", () => {
+  it("should create Date from string", () => {
     class Foo { time = new Date() }
-
     const case1 = Transformer.fromJSON({ time: '2025-01-01' }, Foo)
     assert.equal(case1.time instanceof Date, true)
     assert.equal(typeof case1.time.toDateString(), 'string')
@@ -120,16 +120,16 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it("should not transform array elements if their type are not declared in 'types'", () => {
+  it("should not transform collection elements if their type are not declared in 'types'", () => {
     class Bar {}
     class Baz {}
     class Foo {
       arr: Bar[] = []
-      arr2: Baz[] = []
+      set: Set<any> = new Set()
     }
-    const result = Transformer.fromJSON({ arr: [{}], arr2: [{}] }, Foo)
-    assert.equal(result.arr[0] instanceof Bar, false)
-    assert.equal(result.arr2[0] instanceof Baz, false)
+    const result = Transformer.fromJSON({ arr: [{}], set: [{}] }, Foo)
+    result.set.forEach(el => assert.equal(el instanceof Baz, false))
+    result.arr.forEach(el => assert.equal(el instanceof Bar, false))
   })
 
 
@@ -208,27 +208,6 @@ describe('Transformer.fromJSON', () => {
   })
 
 
-  it.skip('should transform into date when Date is declared as type in "types" using json values when "strict" = false', () => {
-    class Foo {
-      static types = { map: { of: Date }, set: { of: Date }, arr: { of: Date } }
-      map= new Map<string, Date>()
-      set= new Set<Date>()
-      arr: Date[] = []
-    }
-    const json = {
-      map: { 1: true },
-      set: [ null ],
-      arr: [ {} ]
-    }
-    const result= Transformer.fromJSON(json, Foo, false)
-    assert.equal(result.map instanceof Map, true)
-    assert.equal(result.set instanceof Set, true)
-    assert.equal(Array.isArray(result.arr), true)
-
-    result.arr.forEach(el => assert.equal(el instanceof Date, false))
-    result.set.forEach(el => assert.equal(el instanceof Date, false))
-    result.map.forEach(el => assert.equal(el instanceof Date, false))
-  })
 
   it('should ignore symbols properties', () => {
     const symbol = Symbol('quu')
@@ -266,4 +245,26 @@ describe('Transformer.fromJSON', () => {
     const obj2 = Reflect.get(result, 'baz')
     assert.equal(Reflect.get(obj2, 'a'), '')
   })
+
+
+  it('should use json value in default value is an object without prototype', () => {
+    class WithoutConstructor {
+      objectNull = Object.create(null)
+    }
+    const json = { objectNull: { 1: 2 } }
+    const result = Transformer.fromJSON(json, WithoutConstructor)
+    assert.equal(result.objectNull, json.objectNull)
+  })
+
+
+  it('should transform custom classes', () => {
+    class Bar { 1 = '' }
+    class Foo {
+      cls = new Bar()
+    }
+    const json = { cls: { 1: '1' } }
+    const result = Transformer.fromJSON(json, Foo)
+    assert.equal(result.cls instanceof Bar, true)
+  })
+
 })
