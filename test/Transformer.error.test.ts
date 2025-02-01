@@ -1,217 +1,156 @@
 import { describe, it } from 'node:test';
 import { Transformer } from '../src';
 import * as assert from 'node:assert/strict';
-import { Message, TransformerError } from '../src/Errors';
+import { TransformerError, INVALID } from '../src/Errors';
 
 describe('Exceptions', () => {
-  it('should throw INVALID_NUMBER_OF_ARGUMENTS', () => {
+  it('should throw invalid target error', () => {
     const json = { foo: 'bar' };
     try {
       // @ts-ignore
       Transformer.fromJSON(json)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_NUMBER_OF_ARGUMENTS(1));
+      assert.equal(error.message, INVALID.TARGET([undefined]));
       assert.equal(error instanceof TransformerError, true);
     }
   })
 
 
-  it('should throw INVALID_JSON', () => {
+  it('should throw invalid source', () => {
     class Target {}
     try {
       // @ts-ignore
       Transformer.fromJSON(null, Target)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_JSON(null, 'Target'));
+      assert.equal(error.message, INVALID.JSON(['Target']));
       assert.equal(error instanceof TransformerError, true);
     }
   })
 
-
-  it('should throw INVALID_CONSTRUCTOR', () => {
-    try {
-      // @ts-ignore
-      Transformer.fromJSON({}, ()=> {})
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_CONSTRUCTOR);
-      assert.equal(error instanceof TransformerError, true);
-    }
-  })
-
-
-  it('should throw INVALID_TYPE', () => {
-    class Foo { bar = 0 }
-    try {
-      Transformer.fromJSON({ bar: '' }, Foo)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', 0, ''));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-    try {
-      Transformer.fromJSON({ bar: true }, Foo)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', 0, true));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-    try {
-      Transformer.fromJSON({ bar: null }, Foo)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', 0, null));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-    try {
-      Transformer.fromJSON({ bar: [] }, Foo)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', 0, []));
-      assert.equal(error instanceof TransformerError, true);
-    }
-  })
-
-
-  it('should throw INVALID_ARRAY_TYPE', () => {
+  it('should throw invalid target when default value is null, strict is true and type is not declared in descriptor', () => {
     class Target {
-      arr: any[] = []
+      a = null
     }
     try {
-      Transformer.fromJSON({ arr: {} }, Target)
+      Transformer.fromJSON({ a: 2 }, Target)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_ARRAY_TYPE('arr', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-    try {
-      Transformer.fromJSON({ arr: null }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_ARRAY_TYPE('arr', 'Target'));
+      assert.equal(error.message, INVALID.TARGET(['Target', 'a']));
       assert.equal(error instanceof TransformerError, true);
     }
   })
 
-
-  it('should throw INVALID_MAP_TYPE', () => {
+  it('should throw invalid target when default value is null, strict is true and type declared in descriptor in not a valid constructor', () => {
     class Target {
-      map = new Map<string, any>()
+      static types = { a: { type: true } }
+      a = null
     }
     try {
-      Transformer.fromJSON({ map: [] }, Target)
+      Transformer.fromJSON({ a: 2 }, Target)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_MAP_TYPE('map', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-
-    try {
-      Transformer.fromJSON({ map: null }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_MAP_TYPE('map', 'Target'));
+      assert.equal(error.message, INVALID.TARGET(['Target', 'a', '']));
       assert.equal(error instanceof TransformerError, true);
     }
   })
 
 
-  it('should throw INVALID_SET_TYPE', () => {
-    class Target {
-      set = new Set<any>()
-    }
-    try {
-      Transformer.fromJSON({ set: true }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_SET_TYPE('set', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-
-    try {
-      Transformer.fromJSON({ set: null }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_SET_TYPE('set', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-  })
-
-
-  it('should throw INVALID_DATE_TYPE', () => {
-    class Target {
-      time = new Date()
-    }
-    try {
-      Transformer.fromJSON({ time: true }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_DATE_TYPE('time', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-
-
-    try {
-      Transformer.fromJSON({ time: null }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_DATE_TYPE('time', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-  })
-
-
-  it('should throw MISMATCH_SCHEMA', () => {
-    class Target {
-      obj = {}
-    }
-
-    try {
-      Transformer.fromJSON({ a: 1 }, Target)
-    } catch (error) {
-      assert.equal(error.message, Message.MISMATCH_SCHEMA('obj', 'Target'));
-      assert.equal(error instanceof TransformerError, true);
-    }
-  })
-
-
-  it('should throw INVALID_TYPE when Date is declared as type in "types" but value in json is not string or number', () => {
-    class Foo {
-      static types = { map: Date }
+  it('should throw invalid type when Date is declared as type in "types" but value in json is not string', () => {
+    class DateTest {
+      static types = { map: { of: Date } }
       map = new Map<string, Date>()
     }
 
-    class Bar {
-      static types = { set: Date }
-      set = new Set<Date>()
-    }
-
-    class Baz {
-      static types = { arr: Date }
-      arr: Date[] = []
-    }
-
     try {
-      Transformer.fromJSON({ map: { 1: true } }, Foo)
+      Transformer.fromJSON({ map: { 1: true } }, DateTest)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('map', 'Date', '', true));
-    }
-
-    try {
-      Transformer.fromJSON({ set: [null] }, Bar)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('set', 'Date', '', null));
-    }
-
-    try {
-      Transformer.fromJSON({ arr: [{}] }, Baz)
-    } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('arr', 'Date', '', {}));
+      assert.equal(error.message, INVALID.TYPE('map', ['DateTest', 'map']));
     }
   })
 
 
-  it('should throw INVALID_TYPE when object value is Object without prototype and "strict" = true', () => {
-    class Foo { bar = Object.create(null) }
+  it('should throw invalid type when property exists in target but not in source and strict is true', () => {
+    class Target { a = '' }
     try {
-      Transformer.fromJSON({ bar: null }, Foo, true)
+      Transformer.fromJSON({ }, Target)
     } catch (error) {
-      assert.equal(error.message, Message.INVALID_TYPE('bar', 'Foo', Object.create(null), null));
-      assert.equal(error instanceof TransformerError, true);
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
     }
   })
 
+  it('should throw invalid type when type of property in target !== type of property in source and strict is true', () => {
+    class Target { a = '' }
+    try {
+      Transformer.fromJSON({ a: 2 }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+  })
+
+  it('should throw invalid type when type of property in target is array but not in source, and strict is true', () => {
+    class Target { a = [] }
+    try {
+      Transformer.fromJSON({ a: 2 }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+  })
+
+  it('should throw invalid type when type of property in target is Map but in source is not object, and strict is true', () => {
+    class Target { a = new Map() }
+    try {
+      Transformer.fromJSON({ a: [] }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+
+    try {
+      Transformer.fromJSON({ a: true }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+  })
+
+  it('should throw invalid type when type of property in target is Set but not array in source, and strict is true', () => {
+    class Target { a = new Set() }
+    try {
+      Transformer.fromJSON({ a: 2 }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+  })
+
+  it('should throw invalid type when type of property in target is Date but not string in source, and strict is true', () => {
+    class Target { a = new Date() }
+    try {
+      Transformer.fromJSON({ a: 2 }, Target)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Target', 'a']));
+    }
+  })
+
+
+  it('should invalid type if default value is an object without prototype but value in source is not object', () => {
+    class Foo {
+      bar = Object.create(null)
+    }
+
+    try {
+      Transformer.fromJSON({ bar: 2 }, Foo)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('bar', ['Foo', 'bar']));
+    }
+  })
+
+
+  it('should throw invalid type when descriptor.strict is true and strict is false', () => {
+    class Foo {
+      static types = { a: { strict: true } }
+      a = ''
+    }
+    const json = { a: true }
+    try {
+      Transformer.fromJSON({ a: true }, Foo)
+    } catch (error) {
+      assert.equal(error.message, INVALID.TYPE('a', ['Foo', 'a']));
+    }
+  })
 })
