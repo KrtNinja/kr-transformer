@@ -20,7 +20,7 @@ Docs for version less than 2 are available on [GitHub](https://github.com/nihil-
 ## Api reference
 ```typescript
 interface Transformer {
-  fromJSON<T>(json: JSON, Class: { new(): T }): T
+  fromJSON<T>(json: JSON, Class: { new(): T }, strict?: boolean): T
   
   toJSON(instance: Object): JSON
 }
