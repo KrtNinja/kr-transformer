@@ -84,7 +84,7 @@ export class Transformer {
         return Reflect.set(instance, property, jsonValue)
       }
 
-      if (Object(value) !== value) {
+      if (value instanceof String || value instanceof Number || value instanceof Boolean || Object(value) !== value) {
         if (throwable && typeof value !== typeof jsonValue) { throw TypeError; }
         return Reflect.set(instance, property, jsonValue)
       }
