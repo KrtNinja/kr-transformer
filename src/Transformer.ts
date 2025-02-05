@@ -144,7 +144,7 @@ export class Transformer {
         if (throwable && typeof jsonValue !== 'object') { throw TypeError; }
         return Reflect.set(instance, property, jsonValue)
       }
-      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }), throwable)
+      return Reflect.set(instance, property, this.fromJSON(jsonValue, Constructor as { new(): Object }, throwable))
     })
 
     return instance
