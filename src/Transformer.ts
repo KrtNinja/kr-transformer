@@ -1,15 +1,15 @@
-import { INVALID, TransformerError } from './Errors.js';
+import { INVALID, TransformerError } from './Errors.js'
 
 interface Descriptor {
   /** Any class constructor including built in (String, Number, Boolean, Date e.t.c) */
-  type?: { new(): any },
+  type?: { new (): any }
 
   /** Describes type of elements in collection. <br />
    * If Schema[property] is Map, Set or Array, than property "of" describes the type of elements in collection. <br />
    * I.e. Array<Schema[property]['off']> <br />
    * If not specified, the values from json will be used "as is".
    *   */
-  of?: { new(): unknown }
+  of?: { new (): unknown }
 
   /** Will `throw` if type of value in json doesn't match schema. <br/>
    * Otherwise, the value in json will be used "as is". <br />
@@ -25,8 +25,9 @@ interface Descriptor {
  * Use this only for `nullable properties`, or to describe `types of collections`. <br />
  * There is no reason to describe each property, is much better and easier to set default values.
  * */
-export type Schema<T extends Object> = { [Property in keyof T]?: T[Property] extends Function ? never : Descriptor }
-
+export type Schema<T extends Object> = {
+  [Property in keyof T]?: T[Property] extends Function ? never : Descriptor
+}
 
 /** Transform json or plain object to class instance and vice versa */
 export class Transformer {
@@ -69,7 +70,7 @@ export class Transformer {
       if (value == null) {
         if (!PropertyType) {
           if (throwable) {
-            throw new TransformerError(INVALID.TARGET([Name, property, 'undefined']))
+            throw new TransformerError(INVALID.TARGET([Name, property]))
           }
           return
         }
@@ -88,7 +89,7 @@ export class Transformer {
       }
 
       const jsonValue = Reflect.get(json, property)
-      if (!jsonValue) {
+      if (jsonValue == null) {
         return
       }
 
@@ -270,9 +271,9 @@ export class Transformer {
 }
 
 interface ToCollectionElement {
-  Type: { new(): any } | undefined
-  throwable: boolean,
-  input: any,
-  ErrorPath: string[],
+  Type: { new (): any } | undefined
+  throwable: boolean
+  input: any
+  ErrorPath: string[]
   property: string
 }
